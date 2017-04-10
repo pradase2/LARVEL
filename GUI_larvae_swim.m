@@ -229,6 +229,7 @@ Images=handles.Crop_OrigImages;
 %%
 toggler=retr('toggler');
 selected=floor(get(handles.fileselector, 'value'))-toggler*(1);
+delete(Message)
 if length(size(Images)) == 4 %In the case of RGB pictures
     a=Images(:,:,:,selected);handles.a=a;
     gr = rgb2gray(a);
@@ -238,8 +239,15 @@ if length(size(Images)) == 4 %In the case of RGB pictures
 else
     a=Images(:,:,selected);handles.a=a;
     background = imopen(imcomplement(a),strel('disk',str2double(get(handles.radius,'String'))));
-    bw = imadjust(imcomplement(a) - background);    
+    bw = imadjust(imcomplement(a) - background);
     [~,L]=bwboundaries(bw(:,:,1),'noholes');
+%     imshow(bw,[],'InitialMagnification','fit')
+%     hold on
+%     [B,L]=bwboundaries(bw(:,:,1),'holes',4);
+%     for k = 1:length(B)
+%         boundary = B{k};
+%         plot(boundary(:,2), boundary(:,1), 'r', 'LineWidth', 2)
+%     end
 end
 %gfr=imcomplement(a);
 %imshow(gfr,[],'InitialMagnification','fit')
@@ -253,8 +261,7 @@ bw2(idxToKeep) = true;
 bw2=imclose(bw2,strel('disk',str2double(get(handles.gaps,'String'))));
 handles.bw2(:,:,selected)=bw2;
 set(handles.Identify_centroid_button,'Visible','on');
-guidata(hObject, handles);% Update handles structure
-delete(Message)
+guidata(hObject, handles); % Update handles structure
 sliderdisp(handles)
 handles.status=3;%Preview image in binary
 guidata(hObject, handles);% Update handles structure
@@ -305,8 +312,9 @@ for i=1:handles.nFrames
         bw = im2bw(imadjust(imcomplement(gr)- background),str2double(get(handles.threshold,'String')));
         [~,L]=bwboundaries(bw(:,:,:,1),'noholes');
     else
-        a=Images(:,:,i);handles.a=a;
-        bw = imcomplement(a);
+        a=Images(:,:,selected);handles.a=a;
+        background = imopen(imcomplement(a),strel('disk',str2double(get(handles.radius,'String'))));
+        bw = imadjust(imcomplement(a) - background);
         [~,L]=bwboundaries(bw(:,:,1),'noholes');
     end
 %     a=Images(:,:,i);
@@ -369,9 +377,13 @@ if sum(sum(bw2(:,:,selected)))==0
     errordlg('Please convert the image to binary form','Error');
     return
 end
-
-[~,L]=bwboundaries(bw2(:,:,selected),'noholes');
-stats2=regionprops(L,'centroid');%Measue properties of image regions (e.g Area
+%[~,L]=bwboundaries(bw2(:,:,selected),'noholes');
+[~,L]=bwboundaries(bw2(:,:,selected),'noholes',4);
+stats2=regionprops(L,'centroid');%Measure properties of image regions (e.g Area
+%stats2=regionprops(bw2,'centroid'); %AP(03/31/2017)
+%gcent=cat(1,stats2.Centroid); %AP(03/31/2017)
+%x2=[gcent(:,1)]';x2=x2(1:2:end); %AP(03/31/2017)
+%y2=[gcent(:,2)]';y2=y2(2:2:end); %AP(03/31/2017)
 x2=[stats2.Centroid]';x2=x2(1:2:end);%get just the x coordinate
 y2=[stats2.Centroid]';y2=y2(2:2:end);%get just the y coordinate
 %% Figure display
@@ -379,7 +391,8 @@ Orig_croped=imcrop(imread(fullfile(handles.filepath,handles.filename{selected}))
 %h=figure;set(h,'color',[1 1 1],'position',[ 1 1 1920 1080]);
 %subaxis(1,2,1,'mt',0.01,'mb',0.04);
 imshow(Orig_croped,[],'InitialMagnification','fit');
-hold on;plot(x2,y2,'ro');
+hold on;
+plot(x2,y2,'ro');
 %subaxis(1,2,2,'mt',0.01,'mb',0.04);
 imshow(bw2(:,:,selected),[],'InitialMagnification','fit');hold on;plot(x2,y2,'ro')
 %% Storage data
@@ -828,6 +841,17 @@ set(handles.picture,'Visible','off');
 switchui('multip03')
 if strcmp(get(handles.tools, 'visible'), 'off');
     set(handles.tools,'visible','on')
+end
+
+%% Check type of images
+Images=handles.Crop_OrigImages;
+% If is binary, do not display luminance options
+if length(size(Images)) == 4
+    set(handles.text5,'Enable','on')
+    set(handles.threshold,'Enable','on')
+else
+    set(handles.text5,'Enable','off')
+    set(handles.threshold,'Enable','off')
 end
 end
 % --------------------------------------------------------------------
